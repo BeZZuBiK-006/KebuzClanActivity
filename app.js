@@ -227,6 +227,14 @@ function getRowBg(player) {
   return '';
 }
 
+function getMissClass(count) {
+  var n = +count || 0;
+  if (n >= 3) return ' miss-3';
+  if (n === 2) return ' miss-2';
+  if (n === 1) return ' miss-1';
+  return '';
+}
+
 var LAB_OPTIONS = ['', '0', '1', '2', 'отбил не те'];
 var LAB_LABELS  = { '': '—', '0': '0', '1': '1', '2': '2', 'отбил не те': 'отбил не те' };
 
@@ -266,9 +274,9 @@ function renderPlayers() {
 
     rows += '<tr data-nick="' + esc(player.nick) + '"' + bgStyle + '>';
     rows += '<td class="nick-cell">' + roleBadge + '<span class="nick-text">' + esc(player.nick) + '</span></td>';
-    rows += '<td class="miss-cell">' + (player.skipT || 0) + '</td>';
-    rows += '<td class="miss-cell">' + (player.skipL || 0) + '</td>';
-    rows += '<td class="miss-cell">' + (player.skipP || 0) + '</td>';
+    rows += '<td class="miss-cell' + getMissClass(player.skipT) + '">' + (player.skipT || 0) + '</td>';
+    rows += '<td class="miss-cell' + getMissClass(player.skipL) + '">' + (player.skipL || 0) + '</td>';
+    rows += '<td class="miss-cell' + getMissClass(player.skipP) + '">' + (player.skipP || 0) + '</td>';
     rows += '<td class="check-cell"><input type="checkbox" class="torg-cb"' + (log.torg ? ' checked' : '') + disAttr + '></td>';
     rows += '<td class="lab-cell">' + buildLabSelect(log.labirint, disabled) + '</td>';
     rows += '<td class="check-cell"><input type="checkbox" class="pohod-cb"' + (log.pohod ? ' checked' : '') + disAttr + '></td>';
@@ -356,15 +364,11 @@ async function saveLogs() {
   showLoading();
   try {
     await api('saveLogs', { logs: state.editedLogs });
-    // Применяем изменения к todayLogs
-    Object.keys(state.editedLogs).forEach(function(nick) {
-      state.todayLogs[nick] = Object.assign({}, state.todayLogs[nick] || {}, state.editedLogs[nick]);
-    });
     state.editedLogs = {};
     showToast('Сохранено ✓', 'success');
+    await loadData();
   } catch (err) {
     showToast('Ошибка сохранения: ' + err.message, 'error');
-  } finally {
     hideLoading();
   }
 }
@@ -705,9 +709,30 @@ function closeModal() {
 }
 
 // ============================================================
+// ТЁМНАЯ ТЕМА
+// ============================================================
+function initTheme() {
+  if (localStorage.getItem('theme') === 'dark') {
+    document.body.classList.add('dark-theme');
+    el('btn-theme').textContent = '☀️';
+    el('btn-theme').title = 'Светлая тема';
+  }
+}
+
+function toggleTheme() {
+  var dark = document.body.classList.toggle('dark-theme');
+  localStorage.setItem('theme', dark ? 'dark' : 'light');
+  el('btn-theme').textContent = dark ? '☀️' : '🌙';
+  el('btn-theme').title = dark ? 'Светлая тема' : 'Тёмная тема';
+}
+
+// ============================================================
 // ИНИЦИАЛИЗАЦИЯ
 // ============================================================
 document.addEventListener('DOMContentLoaded', function() {
+
+  initTheme();
+  el('btn-theme').addEventListener('click', toggleTheme);
 
   // --- Восстанавливаем сессию ---
   var urlParams = new URLSearchParams(location.search);

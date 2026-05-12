@@ -23,6 +23,10 @@
   --row-vacation: #E0E0E0;
   --row-new:      #C8E6C9;
 
+  --miss-1: #cfe2f3;
+  --miss-2: #fff2cc;
+  --miss-3: #f4cccc;
+
   --border:     #e0e0e0;
   --shadow:     0 2px 8px rgba(0,0,0,.12);
   --shadow-lg:  0 8px 24px rgba(0,0,0,.18);
@@ -410,7 +414,7 @@ body {
 .nick-th    { min-width: 120px; }
 .miss-th    { width: 44px; text-align: center; }
 .check-th   { width: 60px; text-align: center; }
-.lab-th     { min-width: 110px; }
+.lab-th     { width: 96px; }
 .actions-th { width: 96px; text-align: right; }
 
 .nick-cell  { min-width: 120px; }
@@ -439,13 +443,28 @@ body {
   letter-spacing: .03em;
 }
 
-/* Чекбоксы в таблице */
+/* Чекбоксы в таблице — крест вместо галочки */
 .player-table input[type="checkbox"] {
-  width: 18px; height: 18px;
-  accent-color: var(--color-primary);
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px; height: 20px;
+  border: 2px solid #bdbdbd;
+  border-radius: 3px;
   cursor: pointer;
+  background: #fff;
+  transition: background .12s, border-color .12s;
+  vertical-align: middle;
+  flex-shrink: 0;
 }
-.player-table input[type="checkbox"]:disabled { cursor: default; }
+.player-table input[type="checkbox"]:checked {
+  background: #e53935;
+  border-color: #e53935;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cline x1='2' y1='2' x2='10' y2='10' stroke='white' stroke-width='2' stroke-linecap='round'/%3E%3Cline x1='10' y1='2' x2='2' y2='10' stroke='white' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 12px;
+}
+.player-table input[type="checkbox"]:disabled { opacity: .5; cursor: default; }
 
 /* Select лабиринта */
 .lab-select {
@@ -458,8 +477,7 @@ body {
   color: var(--text-primary);
   outline: none;
   cursor: pointer;
-  width: 100%;
-  max-width: 130px;
+  width: 92px;
 }
 .lab-select:focus { border-color: var(--color-primary-l); }
 .lab-select:disabled {
@@ -486,6 +504,11 @@ body {
 
 /* Отображение в архиве (только чтение) */
 .archive-icon { font-size: 1.1rem; }
+
+/* Цвета ячеек с количеством пропусков */
+.miss-1 { background: var(--miss-1); }
+.miss-2 { background: var(--miss-2); }
+.miss-3 { background: var(--miss-3); }
 
 /* Пустое состояние */
 .empty-state {
@@ -592,3 +615,40 @@ body {
   .controls-bar { padding: 10px 24px; }
   #app-header { padding: 10px 24px; }
 }
+
+/* ============================================================
+   ТЁМНАЯ ТЕМА
+   ============================================================ */
+.dark-theme {
+  --bg-page:    #121212;
+  --bg-card:    #1e1e1e;
+  --bg-header:  #0d1033;
+  --bg-controls:#252535;
+  --text-primary:   #e0e0e0;
+  --text-secondary: #9e9e9e;
+  --border:     #383838;
+  --shadow:     0 2px 8px rgba(0,0,0,.5);
+  --shadow-lg:  0 8px 24px rgba(0,0,0,.6);
+  --row-temp:     #4a2f00;
+  --row-vacation: #2a2a2a;
+  --row-new:      #173a1e;
+  --miss-1: #1a3452;
+  --miss-2: #3a3018;
+  --miss-3: #3a1818;
+}
+
+.dark-theme .player-table thead tr      { background: var(--bg-controls); }
+.dark-theme .player-table tbody tr:hover { filter: brightness(1.12); }
+.dark-theme .form-input                 { background: #2a2a2a; }
+.dark-theme .date-picker                { background: #2a2a2a; }
+.dark-theme .lab-select                 { background: #2a2a2a; }
+.dark-theme .lab-select:disabled        { background: #1e1e1e; color: #666; }
+.dark-theme .player-table input[type="checkbox"]         { background: #2a2a2a; border-color: #555; }
+.dark-theme .player-table input[type="checkbox"]:checked { background: #e53935; border-color: #e53935; }
+.dark-theme .btn-outline       { color: #b0bec5; border-color: #b0bec5; }
+.dark-theme .btn-outline:hover { background: #2a2a2a; }
+.dark-theme .btn-ghost:hover   { background: rgba(255,255,255,.07); }
+.dark-theme .icon-btn:hover    { background: rgba(255,255,255,.08); }
+.dark-theme .modal-close:hover { background: rgba(255,255,255,.08); }
+.dark-theme .divider::before,
+.dark-theme .divider::after    { background: #383838; }
