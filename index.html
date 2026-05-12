@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#1a237e">
+  <title>Управление кланом</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- Индикатор загрузки -->
+<div id="loading" class="hidden" aria-live="polite" aria-label="Загрузка">
+  <div class="spinner"></div>
+</div>
+
+<!-- Уведомления (тосты) -->
+<div id="toast" class="hidden" role="alert"></div>
+
+<!-- ============================================================ -->
+<!-- СТАРТОВАЯ СТРАНИЦА                                           -->
+<!-- ============================================================ -->
+<div id="start-page">
+  <div class="start-container">
+    <div class="start-logo">
+      <span class="logo-icon">⚔️</span>
+      <h1 class="start-title">Управление кланом</h1>
+      <p class="start-subtitle">Ежедневная отметка активности участников</p>
+    </div>
+
+    <!-- Подключение существующей таблицы -->
+    <div class="card" id="connect-section">
+      <h2 class="card-title">Открыть клан</h2>
+      <div class="form-group">
+        <label for="spreadsheet-id-input" class="form-label">ID таблицы Google Sheets</label>
+        <input
+          type="text"
+          id="spreadsheet-id-input"
+          class="form-input"
+          placeholder="Вставьте ID таблицы..."
+          autocomplete="off"
+          spellcheck="false"
+        >
+        <span class="form-hint">Пример: 1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms</span>
+      </div>
+      <button id="btn-connect" class="btn btn-primary btn-full">Перейти</button>
+    </div>
+
+    <div class="divider"><span>или</span></div>
+
+    <!-- Создание нового клана -->
+    <div class="card" id="create-section">
+      <h2 class="card-title">Создать новый клан</h2>
+      <div class="form-group">
+        <label for="clan-name-input" class="form-label">Название клана</label>
+        <input
+          type="text"
+          id="clan-name-input"
+          class="form-input"
+          placeholder="Название клана..."
+          autocomplete="off"
+        >
+      </div>
+      <div class="form-group">
+        <label for="owner-email-input" class="form-label">Ваша почта Google</label>
+        <input
+          type="email"
+          id="owner-email-input"
+          class="form-input"
+          placeholder="example@gmail.com"
+          autocomplete="email"
+        >
+        <span class="form-hint">Вам будет выдан доступ к новой таблице</span>
+      </div>
+      <button id="btn-create-clan" class="btn btn-success btn-full">Создать клан</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- ОСНОВНОЕ ПРИЛОЖЕНИЕ                                          -->
+<!-- ============================================================ -->
+<div id="app-page" class="hidden">
+
+  <!-- Шапка -->
+  <header id="app-header">
+    <div class="header-left">
+      <span id="clan-name-display" class="clan-name">Клан</span>
+      <span id="date-display" class="date-badge"></span>
+    </div>
+    <div class="header-right">
+      <button id="btn-archive" class="btn btn-header">📋 Архив</button>
+      <button id="btn-today" class="btn btn-header hidden">📅 Сегодня</button>
+      <button id="btn-leave" class="btn btn-header btn-icon" title="Выйти из клана">🚪</button>
+    </div>
+  </header>
+
+  <!-- Панель управления — текущий день -->
+  <div id="today-controls" class="controls-bar">
+    <button id="btn-add-player" class="btn btn-success">➕ Добавить</button>
+    <button id="btn-save" class="btn btn-primary">💾 Сохранить</button>
+    <button id="btn-end-day" class="btn btn-warning">⏭ Завершить день</button>
+    <button id="btn-refresh" class="btn btn-ghost" title="Обновить">🔄</button>
+  </div>
+
+  <!-- Панель управления — архив -->
+  <div id="archive-controls" class="controls-bar hidden">
+    <input type="date" id="archive-date-picker" class="date-picker">
+    <button id="btn-edit-archive" class="btn btn-outline">✏️ Редактировать</button>
+    <button id="btn-save-archive" class="btn btn-primary hidden">💾 Сохранить</button>
+    <button id="btn-cancel-archive" class="btn btn-ghost hidden">✖ Отменить</button>
+  </div>
+
+  <!-- Список игроков -->
+  <div id="player-list-wrapper">
+    <div id="player-list"></div>
+  </div>
+
+</div>
+
+<!-- ============================================================ -->
+<!-- МОДАЛЬНЫЕ ОКНА                                               -->
+<!-- ============================================================ -->
+<div id="modal-overlay" class="hidden" role="dialog" aria-modal="true">
+
+  <!-- Добавить игрока -->
+  <div id="modal-add" class="modal hidden">
+    <div class="modal-header">
+      <h3 class="modal-title">Добавить игрока</h3>
+      <button class="modal-close" aria-label="Закрыть">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label for="add-nick" class="form-label">Ник <span class="required">*</span></label>
+        <input type="text" id="add-nick" class="form-input" placeholder="Никнейм игрока" autocomplete="off">
+      </div>
+      <div class="form-group">
+        <span class="form-label">Роль</span>
+        <div class="radio-group">
+          <label class="radio-label">
+            <input type="radio" name="add-role" value="" checked>
+            <span>Обычный</span>
+          </label>
+          <label class="radio-label">
+            <input type="radio" name="add-role" value="Заместитель">
+            <span>Заместитель</span>
+          </label>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="checkbox-label">
+          <input type="checkbox" id="add-is-temp">
+          <span>Временный участник</span>
+        </label>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" id="btn-add-cancel">Отмена</button>
+      <button class="btn btn-primary" id="btn-add-submit">Добавить</button>
+    </div>
+  </div>
+
+  <!-- Редактировать игрока -->
+  <div id="modal-edit" class="modal hidden">
+    <div class="modal-header">
+      <h3 class="modal-title">Редактировать игрока</h3>
+      <button class="modal-close" aria-label="Закрыть">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="edit-old-nick">
+      <div class="form-group">
+        <label for="edit-nick" class="form-label">Ник</label>
+        <input type="text" id="edit-nick" class="form-input" autocomplete="off">
+      </div>
+      <div class="form-group">
+        <span class="form-label">Роль</span>
+        <div class="radio-group">
+          <label class="radio-label">
+            <input type="radio" name="edit-role" value="" id="edit-role-normal">
+            <span>Обычный</span>
+          </label>
+          <label class="radio-label">
+            <input type="radio" name="edit-role" value="Заместитель" id="edit-role-deputy">
+            <span>Заместитель</span>
+          </label>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="checkbox-label">
+          <input type="checkbox" id="edit-is-temp">
+          <span>Временный участник</span>
+        </label>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" id="btn-edit-cancel">Отмена</button>
+      <button class="btn btn-primary" id="btn-edit-submit">Сохранить</button>
+    </div>
+  </div>
+
+  <!-- Отпуск -->
+  <div id="modal-vacation" class="modal hidden">
+    <div class="modal-header">
+      <h3 class="modal-title">Отпуск</h3>
+      <button class="modal-close" aria-label="Закрыть">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="vacation-nick">
+      <div class="form-group">
+        <label class="checkbox-label">
+          <input type="checkbox" id="vacation-active">
+          <span>В отпуске</span>
+        </label>
+      </div>
+      <div class="form-group" id="vacation-return-group">
+        <label for="vacation-return-date" class="form-label">Дата возвращения</label>
+        <input type="date" id="vacation-return-date" class="form-input" disabled>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" id="btn-vacation-cancel">Отмена</button>
+      <button class="btn btn-primary" id="btn-vacation-submit">Сохранить</button>
+    </div>
+  </div>
+
+  <!-- Подтверждение -->
+  <div id="modal-confirm" class="modal hidden">
+    <div class="modal-header">
+      <h3 class="modal-title" id="confirm-title">Подтверждение</h3>
+      <button class="modal-close" aria-label="Закрыть">✕</button>
+    </div>
+    <div class="modal-body">
+      <p id="confirm-message" class="confirm-text"></p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" id="btn-confirm-cancel">Отмена</button>
+      <button class="btn btn-danger" id="btn-confirm-ok">Подтвердить</button>
+    </div>
+  </div>
+
+</div>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
