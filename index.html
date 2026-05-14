@@ -100,14 +100,18 @@
   <div id="today-controls" class="controls-bar">
     <button id="btn-add-player" class="btn btn-success">➕ Добавить</button>
     <button id="btn-save" class="btn btn-primary">💾 Сохранить</button>
-    <button id="btn-end-day" class="btn btn-warning">⏭ Завершить день</button>
     <button id="btn-refresh" class="btn btn-ghost" title="Обновить">🔄</button>
   </div>
 
   <!-- Панель управления — архив -->
   <div id="archive-controls" class="controls-bar hidden">
-    <input type="date" id="archive-date-picker" class="date-picker">
-    <button id="btn-edit-archive" class="btn btn-outline">✏️ Редактировать</button>
+    <div class="date-range-group">
+      <span class="date-range-label">С</span>
+      <input type="date" id="archive-date-from" class="date-picker">
+      <span class="date-range-label">по</span>
+      <input type="date" id="archive-date-to" class="date-picker">
+    </div>
+    <button id="btn-edit-archive" class="btn btn-outline hidden">✏️ Редактировать</button>
     <button id="btn-save-archive" class="btn btn-primary hidden">💾 Сохранить</button>
     <button id="btn-cancel-archive" class="btn btn-ghost hidden">✖ Отменить</button>
   </div>

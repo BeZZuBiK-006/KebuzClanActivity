@@ -11,8 +11,10 @@ const state = {
   todayLogs:       {},        // {nick: {torg, labirint, pohod}}
   todayDate:       null,
   editedLogs:      {},        // накапливает изменения до нажатия «Сохранить»
-  archiveDate:     null,      // строка дд.мм.гггг
-  archiveData:     [],
+  archiveFromDate: null,      // строка дд.мм.гггг
+  archiveToDate:   null,      // строка дд.мм.гггг
+  archiveData:     [],        // данные одной даты (для режима редактирования)
+  archiveGroups:   [],        // [{date, entries}] для диапазонного вида
   archiveEdits:    {},        // {nick: {torg, labirint, pohod}}
   archiveEditMode: false,
   confirmCb:       null,      // коллбэк для модального подтверждения
@@ -94,6 +96,47 @@ function displayToIso(displayDate) {
   return parts[2] + '-' + parts[1] + '-' + parts[0];
 }
 
+// Возвращает массив дат (дд.мм.гггг) от toStr до fromStr включительно (новые первые)
+function getDateRange(fromStr, toStr) {
+  function parse(str) {
+    var p = str.split('.');
+    if (p.length !== 3) return null;
+    return new Date(+p[2], +p[1] - 1, +p[0]);
+  }
+  var from = parse(fromStr);
+  var to   = parse(toStr);
+  if (!from || !to || from > to) return [];
+  var dates = [];
+  var cur = new Date(to.getFullYear(), to.getMonth(), to.getDate());
+  while (cur >= from && dates.length <= 31) {
+    var y = cur.getFullYear();
+    var m = String(cur.getMonth() + 1).padStart(2, '0');
+    var d = String(cur.getDate()).padStart(2, '0');
+    dates.push(d + '.' + m + '.' + y);
+    cur.setDate(cur.getDate() - 1);
+  }
+  return dates;
+}
+
+// ============================================================
+// АВТОСОХРАНЕНИЕ
+// ============================================================
+var autoSaveTimer = null;
+
+function scheduleAutoSave() {
+  clearTimeout(autoSaveTimer);
+  autoSaveTimer = setTimeout(function() {
+    if (state.mode === 'today' && Object.keys(state.editedLogs).length > 0) {
+      saveLogs(true);
+    }
+  }, 3 * 60 * 1000);
+}
+
+function cancelAutoSave() {
+  clearTimeout(autoSaveTimer);
+  autoSaveTimer = null;
+}
+
 // ============================================================
 // СТАРТОВАЯ СТРАНИЦА
 // ============================================================
@@ -149,6 +192,7 @@ function updateUrlParam(tableId) {
 // ЗАГРУЗКА ДАННЫХ
 // ============================================================
 async function loadData() {
+  cancelAutoSave();
   showLoading();
   try {
     var results = await Promise.all([
@@ -235,6 +279,51 @@ function getMissClass(count) {
   return '';
 }
 
+// Предварительный подсчёт пропусков с учётом несохранённых изменений
+function getPreviewSkip(player, field) {
+  var skipField = field === 'torg' ? 'skipT' : field === 'labirint' ? 'skipL' : 'skipP';
+  var base      = state.todayLogs[player.nick]  || {};
+  var edits     = state.editedLogs[player.nick] || {};
+  var count     = player[skipField] || 0;
+
+  if (field === 'labirint') {
+    var baseVal = base.labirint || '';
+    var curVal  = edits.labirint !== undefined ? edits.labirint : baseVal;
+    if (!baseVal && curVal)  count++;
+    if (baseVal  && !curVal) count = Math.max(0, count - 1);
+  } else {
+    // torg/pohod: true = пропуск, false = присутствовал
+    var baseMiss = !!(base[field]);
+    var curMiss  = edits[field] !== undefined ? !!(edits[field]) : baseMiss;
+    if (!baseMiss && curMiss)  count++;                          // был → пропуск
+    if (baseMiss  && !curMiss) count = Math.max(0, count - 1);  // пропуск → был
+  }
+  return count;
+}
+
+// Точечное обновление ячеек пропусков в строке (без перерисовки таблицы)
+function updateMissCells(nick) {
+  var rows = el('player-list').querySelectorAll('tr[data-nick]');
+  var row = null;
+  for (var i = 0; i < rows.length; i++) {
+    if (rows[i].dataset.nick === nick) { row = rows[i]; break; }
+  }
+  if (!row) return;
+
+  var player = state.players.find(function(p) { return p.nick === nick; });
+  if (!player) return;
+
+  var cells  = row.querySelectorAll('.miss-cell');
+  var fields = ['torg', 'labirint', 'pohod'];
+  cells.forEach(function(cell, idx) {
+    var count = getPreviewSkip(player, fields[idx]);
+    cell.textContent = count;
+    cell.classList.remove('miss-1', 'miss-2', 'miss-3');
+    var cls = getMissClass(count).trim();
+    if (cls) cell.classList.add(cls);
+  });
+}
+
 var LAB_OPTIONS = ['', '0', '1', '2', 'отбил не те'];
 var LAB_LABELS  = { '': '—', '0': '0', '1': '1', '2': '2', 'отбил не те': 'отбил не те' };
 
@@ -274,16 +363,16 @@ function renderPlayers() {
 
     rows += '<tr data-nick="' + esc(player.nick) + '"' + bgStyle + '>';
     rows += '<td class="nick-cell">' + roleBadge + '<span class="nick-text">' + esc(player.nick) + '</span></td>';
-    rows += '<td class="miss-cell' + getMissClass(player.skipT) + '">' + (player.skipT || 0) + '</td>';
+    rows += '<td class="miss-cell miss-border-l' + getMissClass(player.skipT) + '">' + (player.skipT || 0) + '</td>';
     rows += '<td class="miss-cell' + getMissClass(player.skipL) + '">' + (player.skipL || 0) + '</td>';
-    rows += '<td class="miss-cell' + getMissClass(player.skipP) + '">' + (player.skipP || 0) + '</td>';
+    rows += '<td class="miss-cell miss-border-r' + getMissClass(player.skipP) + '">' + (player.skipP || 0) + '</td>';
     rows += '<td class="check-cell"><input type="checkbox" class="torg-cb"' + (log.torg ? ' checked' : '') + disAttr + '></td>';
     rows += '<td class="lab-cell">' + buildLabSelect(log.labirint, disabled) + '</td>';
     rows += '<td class="check-cell"><input type="checkbox" class="pohod-cb"' + (log.pohod ? ' checked' : '') + disAttr + '></td>';
     rows += '<td class="actions-cell">';
     rows += '<button class="icon-btn" data-action="edit"    title="Редактировать">✏️</button>';
-    rows += '<button class="icon-btn" data-action="delete"  title="Удалить">❌</button>';
     rows += '<button class="icon-btn' + vacClass + '" data-action="vacation" title="Отпуск">🏖️</button>';
+    rows += '<button class="icon-btn" data-action="delete"  title="Удалить">❌</button>';
     rows += '</td>';
     rows += '</tr>';
   });
@@ -296,9 +385,9 @@ function renderPlayers() {
     '<div class="table-wrapper"><table class="player-table">' +
     '<thead><tr>' +
     '<th class="nick-th">Игрок</th>' +
-    '<th class="miss-th" title="Пропуски торга">Т↓</th>' +
+    '<th class="miss-th miss-border-l" title="Пропуски торга">Т↓</th>' +
     '<th class="miss-th" title="Пропуски лабиринта">Л↓</th>' +
-    '<th class="miss-th" title="Пропуски похода">П↓</th>' +
+    '<th class="miss-th miss-border-r" title="Пропуски похода">П↓</th>' +
     '<th class="check-th">Торг</th>' +
     '<th class="lab-th">Лабиринт</th>' +
     '<th class="check-th">Поход</th>' +
@@ -339,6 +428,8 @@ function onTodayChange(e) {
   } else if (e.target.classList.contains('pohod-cb')) {
     state.editedLogs[nick].pohod = e.target.checked;
   }
+  updateMissCells(nick);
+  scheduleAutoSave();
 }
 
 function onTodayClick(e) {
@@ -356,16 +447,17 @@ function onTodayClick(e) {
 // ============================================================
 // ТЕКУЩИЙ ДЕНЬ — СОХРАНЕНИЕ
 // ============================================================
-async function saveLogs() {
+async function saveLogs(isAuto) {
+  cancelAutoSave();
   if (Object.keys(state.editedLogs).length === 0) {
-    showToast('Нет несохранённых изменений', 'info');
+    if (!isAuto) showToast('Нет несохранённых изменений', 'info');
     return;
   }
   showLoading();
   try {
     await api('saveLogs', { logs: state.editedLogs });
     state.editedLogs = {};
-    showToast('Сохранено ✓', 'success');
+    showToast(isAuto ? 'Автосохранение ✓' : 'Сохранено ✓', 'success');
     await loadData();
   } catch (err) {
     showToast('Ошибка сохранения: ' + err.message, 'error');
@@ -485,7 +577,16 @@ async function submitVacation() {
   var active     = el('vacation-active').checked;
   var returnDate = el('vacation-return-date').value; // ISO format
 
+  // Оптимистичное обновление — сразу отображаем в таблице
+  var playerIdx = state.players.findIndex(function(p) { return p.nick === nick; });
+  var prevPlayer = playerIdx >= 0 ? Object.assign({}, state.players[playerIdx]) : null;
+  if (playerIdx >= 0) {
+    state.players[playerIdx].onVacation = active;
+    state.players[playerIdx].returnDate = active ? isoToDisplay(returnDate) : '';
+  }
   closeModal();
+  renderPlayers();
+
   showLoading();
   try {
     if (active) {
@@ -493,11 +594,15 @@ async function submitVacation() {
     } else {
       await api('cancelVacation', { nick });
     }
-    await loadData();
     showToast('Отпуск обновлён', 'success');
+    await loadData();
   } catch (err) {
+    // Откатываем оптимистичное обновление
+    if (playerIdx >= 0 && prevPlayer) {
+      state.players[playerIdx] = prevPlayer;
+      renderPlayers();
+    }
     showToast('Ошибка: ' + err.message, 'error');
-  } finally {
     hideLoading();
   }
 }
@@ -530,36 +635,70 @@ function openEndDayConfirm() {
 // РЕЖИМ АРХИВА
 // ============================================================
 function enterArchiveMode() {
-  state.mode           = 'archive';
+  state.mode            = 'archive';
   state.archiveEditMode = false;
-  state.archiveEdits   = {};
+  state.archiveEdits    = {};
+  state.archiveGroups   = [];
 
-  // Сбрасываем кнопки архива
-  el('btn-edit-archive').classList.remove('hidden');
+  el('btn-edit-archive').classList.add('hidden');
   el('btn-save-archive').classList.add('hidden');
   el('btn-cancel-archive').classList.add('hidden');
 
   renderApp();
 
-  // Устанавливаем дату по умолчанию — вчера
-  var yesterday = new Date();
-  yesterday.setDate(yesterday.getDate() - 1);
-  var isoYesterday = yesterday.toISOString().split('T')[0];
+  // По умолчанию — последние 7 дней
+  var today = new Date();
+  var toDate   = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1);
+  var fromDate = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 7);
 
-  var picker = el('archive-date-picker');
-  picker.max   = new Date().toISOString().split('T')[0];
-  picker.value = isoYesterday;
+  function localIso(d) {
+    return d.getFullYear() + '-' +
+      String(d.getMonth() + 1).padStart(2, '0') + '-' +
+      String(d.getDate()).padStart(2, '0');
+  }
 
-  state.archiveDate = isoToDisplay(isoYesterday);
-  loadArchive(state.archiveDate);
+  var todayIso = localIso(today);
+  el('archive-date-from').max   = todayIso;
+  el('archive-date-to').max     = todayIso;
+  el('archive-date-from').value = localIso(fromDate);
+  el('archive-date-to').value   = localIso(toDate);
+
+  state.archiveFromDate = isoToDisplay(localIso(fromDate));
+  state.archiveToDate   = isoToDisplay(localIso(toDate));
+
+  loadArchiveRange(state.archiveFromDate, state.archiveToDate);
 }
 
-async function loadArchive(dateStr) {
+async function loadArchiveRange(fromDate, toDate) {
+  var dates = getDateRange(fromDate, toDate);
+  if (dates.length === 0) return;
+
   showLoading();
   try {
-    var data = await api('getArchive', { date: dateStr });
-    state.archiveData  = data || [];
+    var results = await Promise.all(dates.map(function(d) {
+      return api('getArchive', { date: d }).catch(function() { return []; });
+    }));
+
+    state.archiveGroups = dates.map(function(d, i) {
+      return { date: d, entries: results[i] || [] };
+    }).filter(function(g) { return g.entries.length > 0; });
+
     state.archiveEdits = {};
+
+    // Для режима редактирования (только одна дата)
+    if (dates.length === 1) {
+      state.archiveData = results[0] || [];
+    } else {
+      state.archiveData = [];
+    }
+
+    // Для режима редактирования: данные самой свежей даты (toDate = dates[0])
+    state.archiveData = results[0] || [];
+
+    if (!state.archiveEditMode) {
+      el('btn-edit-archive').classList.remove('hidden');
+    }
+
     renderArchive();
   } catch (err) {
     showToast('Ошибка загрузки архива: ' + err.message, 'error');
@@ -568,18 +707,9 @@ async function loadArchive(dateStr) {
   }
 }
 
-function renderArchive() {
-  var container = el('player-list');
-
-  if (!state.archiveData || state.archiveData.length === 0) {
-    container.innerHTML = '<p class="empty-state">Нет записей за выбранную дату</p>';
-    return;
-  }
-
-  var edit = state.archiveEditMode;
+function buildArchiveTable(entries, edit) {
   var rows = '';
-
-  state.archiveData.forEach(function(entry) {
+  entries.forEach(function(entry) {
     var e = Object.assign({}, entry, state.archiveEdits[entry.nick] || {});
 
     rows += '<tr data-nick="' + esc(entry.nick) + '">';
@@ -590,16 +720,16 @@ function renderArchive() {
       rows += '<td class="lab-cell">' + buildLabSelect(e.labirint, false) + '</td>';
       rows += '<td class="check-cell"><input type="checkbox" class="pohod-cb"' + (e.pohod ? ' checked' : '') + '></td>';
     } else {
-      rows += '<td class="check-cell archive-icon">' + (entry.torg ? '✔️' : '❌') + '</td>';
-      rows += '<td class="lab-cell">' + esc(entry.labirint || '—') + '</td>';
-      rows += '<td class="check-cell archive-icon">' + (entry.pohod ? '✔️' : '❌') + '</td>';
+      // 8.2: torg/pohod: true=пропуск→красный+❌, false=присутствовал→пусто
+      rows += '<td class="check-cell' + (entry.torg  ? ' arch-miss' : '') + '">' + (entry.torg  ? '❌' : '') + '</td>';
+      rows += '<td class="lab-cell'   + (entry.labirint ? ' arch-miss' : '') + '">' + esc(entry.labirint || '') + '</td>';
+      rows += '<td class="check-cell' + (entry.pohod ? ' arch-miss' : '') + '">' + (entry.pohod ? '❌' : '') + '</td>';
     }
 
     rows += '</tr>';
   });
 
-  var html =
-    '<div class="table-wrapper"><table class="player-table archive-table">' +
+  return '<div class="table-wrapper"><table class="player-table archive-table">' +
     '<thead><tr>' +
     '<th class="nick-th">Игрок</th>' +
     '<th class="check-th">Торг</th>' +
@@ -608,13 +738,41 @@ function renderArchive() {
     '</tr></thead>' +
     '<tbody>' + rows + '</tbody>' +
     '</table></div>';
+}
 
-  container.innerHTML = html;
+function renderArchive() {
+  var container = el('player-list');
 
-  if (edit) {
+  if (!state.archiveGroups || state.archiveGroups.length === 0) {
+    container.innerHTML = '<p class="empty-state">Нет записей за выбранный период</p>';
+    return;
+  }
+
+  var isSingle = getDateRange(state.archiveFromDate, state.archiveToDate).length === 1;
+
+  if (isSingle && state.archiveEditMode) {
+    // Режим редактирования одной даты
+    container.innerHTML = buildArchiveTable(state.archiveData, true);
     var tbody = container.querySelector('tbody');
     if (tbody) tbody.addEventListener('change', onArchiveChange);
+    return;
   }
+
+  if (isSingle) {
+    // Одна дата — читаем
+    container.innerHTML = buildArchiveTable(state.archiveGroups[0].entries, false);
+    return;
+  }
+
+  // Диапазон — группы по датам (8.1)
+  var html = '';
+  state.archiveGroups.forEach(function(group) {
+    html += '<div class="archive-group">';
+    html += '<div class="archive-group-header">' + esc(group.date) + '</div>';
+    html += buildArchiveTable(group.entries, false);
+    html += '</div>';
+  });
+  container.innerHTML = html;
 }
 
 function onArchiveChange(e) {
@@ -638,6 +796,13 @@ function onArchiveChange(e) {
 }
 
 function enterArchiveEditMode() {
+  // В диапазонном режиме схлопываемся на самую свежую дату (archiveToDate)
+  if (state.archiveFromDate !== state.archiveToDate) {
+    state._editFromDateSaved = state.archiveFromDate; // запомним для отмены
+    state.archiveFromDate = state.archiveToDate;
+    el('archive-date-from').value = displayToIso(state.archiveToDate);
+  }
+
   state.archiveEditMode = true;
   state.archiveEdits    = {};
   el('btn-edit-archive').classList.add('hidden');
@@ -652,7 +817,15 @@ function cancelArchiveEdit() {
   el('btn-edit-archive').classList.remove('hidden');
   el('btn-save-archive').classList.add('hidden');
   el('btn-cancel-archive').classList.add('hidden');
-  renderArchive();
+
+  // Восстанавливаем диапазон, если схлопывали
+  if (state._editFromDateSaved) {
+    state.archiveFromDate = state._editFromDateSaved;
+    el('archive-date-from').value = displayToIso(state._editFromDateSaved);
+    state._editFromDateSaved = null;
+  }
+
+  loadArchiveRange(state.archiveFromDate, state.archiveToDate);
 }
 
 async function saveArchiveChanges() {
@@ -669,7 +842,7 @@ async function saveArchiveChanges() {
       var nick = nicks[i];
       var vals = state.archiveEdits[nick];
       await api('updateArchive', {
-        date:     state.archiveDate,
+        date:     state.archiveFromDate,
         nick:     nick,
         torg:     vals.torg,
         labirint: vals.labirint,
@@ -683,6 +856,9 @@ async function saveArchiveChanges() {
         ? Object.assign({}, entry, state.archiveEdits[entry.nick])
         : entry;
     });
+    if (state.archiveGroups.length > 0) {
+      state.archiveGroups[0].entries = state.archiveData.slice();
+    }
 
     cancelArchiveEdit();
     showToast('Архив обновлён ✓', 'success');
@@ -784,20 +960,28 @@ document.addEventListener('DOMContentLoaded', function() {
   // --------------------------------------------------------
   el('btn-add-player').addEventListener('click', openAddModal);
   el('btn-save').addEventListener('click',       saveLogs);
-  el('btn-end-day').addEventListener('click',    openEndDayConfirm);
   el('btn-refresh').addEventListener('click',    loadData);
 
   // --------------------------------------------------------
   // ПАНЕЛЬ АРХИВА
   // --------------------------------------------------------
-  el('archive-date-picker').addEventListener('change', function(e) {
-    state.archiveDate    = isoToDisplay(e.target.value);
+  function onArchiveDateChange() {
     state.archiveEditMode = false;
-    state.archiveEdits   = {};
-    el('btn-edit-archive').classList.remove('hidden');
+    state.archiveEdits    = {};
+    el('btn-edit-archive').classList.add('hidden');
     el('btn-save-archive').classList.add('hidden');
     el('btn-cancel-archive').classList.add('hidden');
-    loadArchive(state.archiveDate);
+    loadArchiveRange(state.archiveFromDate, state.archiveToDate);
+  }
+
+  el('archive-date-from').addEventListener('change', function(e) {
+    state.archiveFromDate = isoToDisplay(e.target.value);
+    onArchiveDateChange();
+  });
+
+  el('archive-date-to').addEventListener('change', function(e) {
+    state.archiveToDate = isoToDisplay(e.target.value);
+    onArchiveDateChange();
   });
 
   el('btn-edit-archive').addEventListener('click',   enterArchiveEditMode);
