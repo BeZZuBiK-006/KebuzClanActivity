@@ -1,8 +1,6 @@
 'use strict';
 
-// ============================================================
 // STATE
-// ============================================================
 const state = {
   spreadsheetId:   null,
   clanName:        null,
@@ -20,9 +18,7 @@ const state = {
   confirmCb:       null,      // коллбэк для модального подтверждения
 };
 
-// ============================================================
 // API
-// ============================================================
 async function api(action, params) {
   const url = localStorage.getItem('scriptUrl') || CONFIG.SCRIPT_URL;
   const payload = Object.assign({ action, spreadsheetId: state.spreadsheetId }, params || {});
@@ -55,9 +51,7 @@ async function apiCreateClan(clanName, ownerEmail) {
   return json.data;
 }
 
-// ============================================================
-// УТИЛИТЫ
-// ============================================================
+// Утилиты
 function showLoading() { el('loading').classList.remove('hidden'); }
 function hideLoading() { el('loading').classList.add('hidden'); }
 
@@ -118,9 +112,7 @@ function getDateRange(fromStr, toStr) {
   return dates;
 }
 
-// ============================================================
-// АВТОСОХРАНЕНИЕ
-// ============================================================
+// Автосохранение
 var autoSaveTimer = null;
 
 function scheduleAutoSave() {
@@ -137,9 +129,7 @@ function cancelAutoSave() {
   autoSaveTimer = null;
 }
 
-// ============================================================
-// СТАРТОВАЯ СТРАНИЦА
-// ============================================================
+// Стартовая страница
 function showStartPage() {
   el('start-page').classList.remove('hidden');
   el('app-page').classList.add('hidden');
@@ -188,9 +178,7 @@ function updateUrlParam(tableId) {
   history.replaceState({}, '', url.toString());
 }
 
-// ============================================================
-// ЗАГРУЗКА ДАННЫХ
-// ============================================================
+// Загрузка данных
 async function loadData() {
   cancelAutoSave();
   showLoading();
@@ -224,9 +212,7 @@ async function loadData() {
   }
 }
 
-// ============================================================
-// РЕНДЕР ПРИЛОЖЕНИЯ
-// ============================================================
+// Рендер приложения
 function renderApp() {
   el('clan-name-display').textContent = state.clanName || 'Клан';
   el('date-display').textContent      = state.todayDate || '';
@@ -246,9 +232,7 @@ function renderApp() {
   }
 }
 
-// ============================================================
-// ТЕКУЩИЙ ДЕНЬ — РЕНДЕР ИГРОКОВ
-// ============================================================
+// Текущий день - рендер игроков
 function sortPlayers(players) {
   return players.slice().sort(function(a, b) {
     var aD = a.role === 'Заместитель';
@@ -444,9 +428,7 @@ function onTodayClick(e) {
   if (action === 'vacation') openVacationModal(nick);
 }
 
-// ============================================================
-// ТЕКУЩИЙ ДЕНЬ — СОХРАНЕНИЕ
-// ============================================================
+// Текущий день - сохранение
 async function saveLogs(isAuto) {
   cancelAutoSave();
   if (Object.keys(state.editedLogs).length === 0) {
@@ -465,9 +447,7 @@ async function saveLogs(isAuto) {
   }
 }
 
-// ============================================================
-// ДОБАВЛЕНИЕ ИГРОКА
-// ============================================================
+// Добавление игрока
 function openAddModal() {
   el('add-nick').value = '';
   document.querySelector('input[name="add-role"][value=""]').checked = true;
@@ -495,9 +475,7 @@ async function submitAddPlayer() {
   }
 }
 
-// ============================================================
-// РЕДАКТИРОВАНИЕ ИГРОКА
-// ============================================================
+// Редактирование игрока
 function openEditModal(nick) {
   var player = state.players.find(function(p) { return p.nick === nick; });
   if (!player) return;
@@ -534,9 +512,7 @@ async function submitEditPlayer() {
   }
 }
 
-// ============================================================
-// УДАЛЕНИЕ ИГРОКА
-// ============================================================
+// Удаление игрока
 function openDeleteConfirm(nick) {
   el('confirm-title').textContent   = 'Удалить игрока';
   el('confirm-message').textContent =
@@ -557,9 +533,7 @@ function openDeleteConfirm(nick) {
   showModal('modal-confirm');
 }
 
-// ============================================================
-// ОТПУСК
-// ============================================================
+// Отпуск
 function openVacationModal(nick) {
   var player = state.players.find(function(p) { return p.nick === nick; });
   if (!player) return;
@@ -607,9 +581,7 @@ async function submitVacation() {
   }
 }
 
-// ============================================================
-// ЗАВЕРШИТЬ ДЕНЬ
-// ============================================================
+// Завершить день
 function openEndDayConfirm() {
   el('confirm-title').textContent   = 'Завершить день';
   el('confirm-message').textContent =
@@ -631,9 +603,7 @@ function openEndDayConfirm() {
   showModal('modal-confirm');
 }
 
-// ============================================================
-// РЕЖИМ АРХИВА
-// ============================================================
+// Режим архива
 function enterArchiveMode() {
   state.mode            = 'archive';
   state.archiveEditMode = false;
@@ -869,9 +839,7 @@ async function saveArchiveChanges() {
   }
 }
 
-// ============================================================
-// МОДАЛЬНЫЕ ОКНА
-// ============================================================
+// Модальные окна
 function showModal(id) {
   // Скрываем все модальные окна, показываем нужное
   document.querySelectorAll('.modal').forEach(function(m) { m.classList.add('hidden'); });
@@ -884,9 +852,7 @@ function closeModal() {
   document.querySelectorAll('.modal').forEach(function(m) { m.classList.add('hidden'); });
 }
 
-// ============================================================
-// ТЁМНАЯ ТЕМА
-// ============================================================
+// ТЁмная тема
 function initTheme() {
   if (localStorage.getItem('theme') === 'dark') {
     document.body.classList.add('dark-theme');
@@ -902,9 +868,7 @@ function toggleTheme() {
   el('btn-theme').title = dark ? 'Светлая тема' : 'Тёмная тема';
 }
 
-// ============================================================
-// ИНИЦИАЛИЗАЦИЯ
-// ============================================================
+// Инициализация
 document.addEventListener('DOMContentLoaded', function() {
 
   initTheme();
@@ -921,9 +885,7 @@ document.addEventListener('DOMContentLoaded', function() {
     showStartPage();
   }
 
-  // --------------------------------------------------------
-  // СТАРТОВАЯ СТРАНИЦА
-  // --------------------------------------------------------
+  // Стартовая страница
   el('btn-connect').addEventListener('click', function() {
     connectToSpreadsheet(el('spreadsheet-id-input').value);
   });
@@ -936,9 +898,7 @@ document.addEventListener('DOMContentLoaded', function() {
     createClan(el('clan-name-input').value, el('owner-email-input').value);
   });
 
-  // --------------------------------------------------------
-  // ШАПКА
-  // --------------------------------------------------------
+  // Шапка
   el('btn-archive').addEventListener('click', enterArchiveMode);
 
   el('btn-today').addEventListener('click', function() {
@@ -955,16 +915,12 @@ document.addEventListener('DOMContentLoaded', function() {
     showStartPage();
   });
 
-  // --------------------------------------------------------
-  // ПАНЕЛЬ ТЕКУЩЕГО ДНЯ
-  // --------------------------------------------------------
+  // Панель текущего дня
   el('btn-add-player').addEventListener('click', openAddModal);
   el('btn-save').addEventListener('click',       saveLogs);
   el('btn-refresh').addEventListener('click',    loadData);
 
-  // --------------------------------------------------------
-  // ПАНЕЛЬ АРХИВА
-  // --------------------------------------------------------
+  // Панель архива
   function onArchiveDateChange() {
     state.archiveEditMode = false;
     state.archiveEdits    = {};
@@ -988,9 +944,7 @@ document.addEventListener('DOMContentLoaded', function() {
   el('btn-save-archive').addEventListener('click',   saveArchiveChanges);
   el('btn-cancel-archive').addEventListener('click', cancelArchiveEdit);
 
-  // --------------------------------------------------------
-  // МОДАЛЬНЫЕ ОКНА — общие
-  // --------------------------------------------------------
+  // Модальные окна - общие
   el('modal-overlay').addEventListener('click', function(e) {
     if (e.target === el('modal-overlay')) closeModal();
   });
@@ -999,9 +953,7 @@ document.addEventListener('DOMContentLoaded', function() {
     btn.addEventListener('click', closeModal);
   });
 
-  // --------------------------------------------------------
-  // МОДАЛЬНОЕ ОКНО — Добавить игрока
-  // --------------------------------------------------------
+  // Модальное окно - добавить игрока
   el('btn-add-cancel').addEventListener('click', closeModal);
   el('btn-add-submit').addEventListener('click', submitAddPlayer);
 
@@ -1009,9 +961,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (e.key === 'Enter') submitAddPlayer();
   });
 
-  // --------------------------------------------------------
-  // МОДАЛЬНОЕ ОКНО — Редактировать игрока
-  // --------------------------------------------------------
+  // Модальное окно - редактировать игрока
   el('btn-edit-cancel').addEventListener('click', closeModal);
   el('btn-edit-submit').addEventListener('click', submitEditPlayer);
 
@@ -1019,9 +969,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (e.key === 'Enter') submitEditPlayer();
   });
 
-  // --------------------------------------------------------
-  // МОДАЛЬНОЕ ОКНО — Отпуск
-  // --------------------------------------------------------
+  // Модальное окно - отпуск
   el('btn-vacation-cancel').addEventListener('click', closeModal);
   el('btn-vacation-submit').addEventListener('click', submitVacation);
 
@@ -1030,9 +978,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (!e.target.checked) el('vacation-return-date').value = '';
   });
 
-  // --------------------------------------------------------
-  // МОДАЛЬНОЕ ОКНО — Подтверждение
-  // --------------------------------------------------------
+  // Модальное окно - подтверждение
   el('btn-confirm-cancel').addEventListener('click', function() {
     closeModal();
     state.confirmCb = null;
