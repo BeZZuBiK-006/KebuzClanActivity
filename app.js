@@ -326,7 +326,7 @@ function renderPlayers() {
   var sorted = sortPlayers(state.players);
   var rows   = '';
 
-  sorted.forEach(function(player) {
+  sorted.forEach(function(player, idx) {
     // Мёрджим сохранённые и несохранённые изменения
     var base    = state.todayLogs[player.nick]  || {};
     var edits   = state.editedLogs[player.nick] || {};
@@ -346,7 +346,9 @@ function renderPlayers() {
     var vacClass = player.onVacation ? ' vacation-active' : '';
 
     rows += '<tr data-nick="' + esc(player.nick) + '"' + bgStyle + '>';
-    rows += '<td class="nick-cell">' + roleBadge + '<span class="nick-text">' + esc(player.nick) + '</span></td>';
+    var vkDot = player.inVkGroup === false ? '<span class="vk-dot" title="Нет в группе ВК"></span>' : '';
+    rows += '<td class="num-cell">' + (idx + 1) + '</td>';
+    rows += '<td class="nick-cell">' + roleBadge + vkDot + '<span class="nick-text">' + esc(player.nick) + '</span></td>';
     rows += '<td class="miss-cell miss-border-l' + getMissClass(player.skipT) + '">' + (player.skipT || 0) + '</td>';
     rows += '<td class="miss-cell' + getMissClass(player.skipL) + '">' + (player.skipL || 0) + '</td>';
     rows += '<td class="miss-cell miss-border-r' + getMissClass(player.skipP) + '">' + (player.skipP || 0) + '</td>';
@@ -362,12 +364,13 @@ function renderPlayers() {
   });
 
   if (!rows) {
-    rows = '<tr><td colspan="8" class="empty-state">Нет игроков. Добавьте первого участника.</td></tr>';
+    rows = '<tr><td colspan="9" class="empty-state">Нет игроков. Добавьте первого участника.</td></tr>';
   }
 
   var html =
     '<div class="table-wrapper"><table class="player-table">' +
     '<thead><tr>' +
+    '<th class="num-th">#</th>' +
     '<th class="nick-th">Игрок</th>' +
     '<th class="miss-th miss-border-l" title="Пропуски торга">Т↓</th>' +
     '<th class="miss-th" title="Пропуски лабиринта">Л↓</th>' +
@@ -480,9 +483,10 @@ function openEditModal(nick) {
   var player = state.players.find(function(p) { return p.nick === nick; });
   if (!player) return;
 
-  el('edit-old-nick').value = nick;
-  el('edit-nick').value     = nick;
+  el('edit-old-nick').value  = nick;
+  el('edit-nick').value      = nick;
   el('edit-is-temp').checked = player.isTemp;
+  el('edit-in-vk').checked   = player.inVkGroup;
 
   var roleVal = player.role === 'Заместитель' ? 'Заместитель' : '';
   var radios  = document.querySelectorAll('input[name="edit-role"]');
@@ -497,12 +501,13 @@ async function submitEditPlayer() {
   var newNick = el('edit-nick').value.trim();
   if (!newNick) { showToast('Введите ник', 'error'); return; }
   var role   = document.querySelector('input[name="edit-role"]:checked').value;
-  var isTemp = el('edit-is-temp').checked;
+  var isTemp    = el('edit-is-temp').checked;
+  var inVkGroup = el('edit-in-vk').checked;
 
   closeModal();
   showLoading();
   try {
-    await api('updatePlayer', { oldNick, newNick, role, isTemp });
+    await api('updatePlayer', { oldNick, newNick, role, isTemp, inVkGroup });
     await loadData();
     showToast('Изменения сохранены', 'success');
   } catch (err) {

@@ -411,12 +411,14 @@ body {
 }
 
 /* Колонки */
+.num-th     { width: 28px; text-align: center; }
 .nick-th    { min-width: 120px; }
 .miss-th    { width: 44px; text-align: center; }
 .check-th   { width: 60px; text-align: center; }
 .lab-th     { width: 96px; }
 .actions-th { width: 96px; text-align: right; }
 
+.num-cell   { text-align: center; font-size: .78rem; color: var(--text-secondary); width: 28px; }
 .nick-cell  { min-width: 120px; }
 .miss-cell  { text-align: center; font-size: .85rem; color: var(--text-secondary); }
 .check-cell { text-align: center; }
@@ -501,6 +503,18 @@ body {
 
 /* Отпуск активен — иконка выделена */
 .vacation-active { background: #ffe0b2; }
+
+/* Индикатор «нет в группе ВК» */
+.vk-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  background: #e53935;
+  border-radius: 50%;
+  margin-right: 5px;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
 
 /* Отображение в архиве (только чтение) */
 .archive-icon { font-size: 1.1rem; }
