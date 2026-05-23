@@ -1,6 +1,4 @@
-/* ============================================================
-   CSS-ПЕРЕМЕННЫЕ
-   ============================================================ */
+/* CSS-переменные */
 :root {
   --color-primary:   #1a237e;
   --color-primary-l: #3949ab;
@@ -36,9 +34,7 @@
   --font: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 }
 
-/* ============================================================
-   СБРОС И БАЗА
-   ============================================================ */
+/* Сброс и база */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 html { font-size: 16px; -webkit-text-size-adjust: 100%; }
@@ -53,9 +49,7 @@ body {
 
 .hidden { display: none !important; }
 
-/* ============================================================
-   ЗАГРУЗЧИК
-   ============================================================ */
+/* Загрузчик */
 #loading {
   position: fixed;
   inset: 0;
@@ -76,9 +70,7 @@ body {
 
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* ============================================================
-   ТОСТ
-   ============================================================ */
+/* Тост */
 #toast {
   position: fixed;
   bottom: 24px;
@@ -100,9 +92,7 @@ body {
 .toast-error   { background: #b71c1c; color: #fff; }
 .toast-info    { background: #0d47a1; color: #fff; }
 
-/* ============================================================
-   СТАРТОВАЯ СТРАНИЦА
-   ============================================================ */
+/* Стартовая страница */
 #start-page {
   display: flex;
   align-items: flex-start;
@@ -166,9 +156,7 @@ body {
   background: var(--border);
 }
 
-/* ============================================================
-   ФОРМЫ
-   ============================================================ */
+/* Формы */
 .form-group { margin-bottom: 14px; }
 .form-group:last-child { margin-bottom: 0; }
 
@@ -235,9 +223,7 @@ body {
   flex-shrink: 0;
 }
 
-/* ============================================================
-   КНОПКИ
-   ============================================================ */
+/* Кнопки */
 .btn {
   display: inline-flex;
   align-items: center;
@@ -275,9 +261,7 @@ body {
 
 .btn-full { width: 100%; }
 
-/* ============================================================
-   ШАПКА ПРИЛОЖЕНИЯ
-   ============================================================ */
+/* Шапка приложения */
 #app-header {
   background: var(--bg-header);
   color: var(--text-on-dark);
@@ -327,9 +311,7 @@ body {
 
 .btn-icon { padding: 8px 10px; font-size: 1rem; }
 
-/* ============================================================
-   ПАНЕЛЬ УПРАВЛЕНИЯ
-   ============================================================ */
+/* Панель управления */
 .controls-bar {
   background: var(--bg-controls);
   padding: 10px 16px;
@@ -353,9 +335,7 @@ body {
 }
 .date-picker:focus { border-color: var(--color-primary-l); }
 
-/* ============================================================
-   СПИСОК ИГРОКОВ — ОБЁРТКА
-   ============================================================ */
+/* Список игроков — обёртка */
 #player-list-wrapper {
   padding: 12px 16px 32px;
 }
@@ -372,9 +352,7 @@ body {
   -webkit-overflow-scrolling: touch;
 }
 
-/* ============================================================
-   ТАБЛИЦА ИГРОКОВ
-   ============================================================ */
+/* Таблица игроков */
 .player-table {
   width: 100%;
   border-collapse: collapse;
@@ -538,9 +516,7 @@ body {
   font-size: .95rem;
 }
 
-/* ============================================================
-   МОДАЛЬНЫЕ ОКНА
-   ============================================================ */
+/* Модальные окна */
 #modal-overlay {
   position: fixed;
   inset: 0;
@@ -610,11 +586,7 @@ body {
   color: var(--text-primary);
 }
 
-/* ============================================================
-   АДАПТИВНОСТЬ
-   ============================================================ */
-
-/* На маленьких экранах таблица скроллится горизонтально */
+/* Адаптивность */
 @media (max-width: 480px) {
   .player-table { min-width: 540px; font-size: .82rem; }
   .player-table th, .player-table td { padding: 6px 7px; }
@@ -630,16 +602,13 @@ body {
   #player-list-wrapper { padding: 8px 10px 24px; }
 }
 
-/* На широком экране — центрируем контент */
 @media (min-width: 900px) {
   #player-list-wrapper { max-width: 960px; margin: 0 auto; padding: 20px 24px 40px; }
   .controls-bar { padding: 10px 24px; }
   #app-header { padding: 10px 24px; }
 }
 
-/* ============================================================
-   ТЁМНАЯ ТЕМА
-   ============================================================ */
+/* Тёмная тема */
 .dark-theme {
   --bg-page:    #121212;
   --bg-card:    #1e1e1e;
@@ -681,9 +650,7 @@ body {
 .dark-theme .divider::before,
 .dark-theme .divider::after    { background: #383838; }
 
-/* ============================================================
-   ДИАПАЗОН ДАТ В АРХИВЕ
-   ============================================================ */
+/* Диапазон дат в архиве */
 .date-range-group {
   display: flex;
   align-items: center;
@@ -696,9 +663,29 @@ body {
   white-space: nowrap;
 }
 
-/* ============================================================
-   АРХИВ — ГРУППА ПО ДАТЕ
-   ============================================================ */
+/* Ретро-режим */
+.retro-date-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.controls-bar.retro-mode {
+  background: #fff3e0;
+  border-bottom-color: #fb8c00;
+}
+
+.dark-theme .controls-bar.retro-mode {
+  background: rgba(251, 140, 0, 0.1);
+  border-bottom-color: #fb8c00;
+}
+
+.date-badge.retro-badge {
+  background: rgba(251, 140, 0, 0.85);
+}
+
+/* Архив — группа по дате */
 .archive-group {
   margin-bottom: 12px;
   border-radius: var(--radius);
@@ -717,7 +704,7 @@ body {
   letter-spacing: .04em;
 }
 
-/* Вертикальные линии в архивной таблице (8.3) */
+/* Вертикальные линии в архивной таблице */
 .archive-table th,
 .archive-table td {
   border-left: 1px solid var(--border);
@@ -727,7 +714,7 @@ body {
   border-left: none;
 }
 
-/* Ячейка-пропуск в архиве (8.2) */
+/* Ячейка-пропуск в архиве */
 .arch-miss {
   background: #ffcdd2 !important;
   color: #b71c1c;

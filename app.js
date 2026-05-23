@@ -16,6 +16,9 @@ const state = {
   archiveEdits:    {},        // {nick: {torg, labirint, pohod}}
   archiveEditMode: false,
   confirmCb:       null,      // коллбэк для модального подтверждения
+  retroDate:       null,      // null = сегодня, 'дд.мм.гггг' = ретро-режим
+  retroLogs:       {},        // {nick: {torg, labirint, pohod}} для ретро-режима
+  retroOrigLogs:   {},        // исходные значения из архива (неизменны в течение сессии)
 };
 
 // API
@@ -197,12 +200,16 @@ async function loadData() {
     state.todayLogs  = logsResult.logs || {};
     state.editedLogs = {};
     state.mode       = 'today';
+    state.retroDate     = null;
+    state.retroLogs     = {};
+    state.retroOrigLogs = {};
 
     localStorage.setItem('clanName', state.clanName);
     updateUrlParam(state.spreadsheetId);
 
     showAppPage();
     renderApp();
+    initRetroDatePicker();
   } catch (err) {
     showToast('Ошибка загрузки: ' + err.message, 'error');
     // Если таблица недоступна — вернуть на стартовую
@@ -229,6 +236,91 @@ function renderApp() {
     el('btn-archive').classList.add('hidden');
     el('btn-today').classList.remove('hidden');
     renderArchive();
+  }
+}
+
+// Ретро-режим — инициализация пикера дат
+function initRetroDatePicker() {
+  if (!state.todayDate) return;
+  var parts = state.todayDate.split('.');
+  if (parts.length !== 3) return;
+  var todayD = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
+  var maxDate = new Date(todayD.getFullYear(), todayD.getMonth(), todayD.getDate() - 1);
+  var maxIso = maxDate.getFullYear() + '-' +
+    String(maxDate.getMonth() + 1).padStart(2, '0') + '-' +
+    String(maxDate.getDate()).padStart(2, '0');
+  var picker = el('retro-date-picker');
+  picker.max = maxIso;
+  if (!state.retroDate) picker.value = '';
+}
+
+// Ретро-режим — вход
+async function enterRetroMode(isoDate) {
+  var displayDate = isoToDisplay(isoDate);
+  showLoading();
+  try {
+    var entries = await api('getArchive', { date: displayDate });
+    state.retroLogs     = {};
+    state.retroOrigLogs = {};
+    (entries || []).forEach(function(entry) {
+      var log = {
+        torg:     entry.torg     || false,
+        labirint: entry.labirint || '',
+        pohod:    entry.pohod    || false,
+      };
+      state.retroLogs[entry.nick]     = log;
+      state.retroOrigLogs[entry.nick] = { torg: log.torg, labirint: log.labirint, pohod: log.pohod };
+    });
+    state.retroDate = displayDate;
+    el('btn-add-player').classList.add('hidden');
+    el('btn-retro-today').classList.remove('hidden');
+    el('btn-save').textContent = '💾 В архив';
+    el('today-controls').classList.add('retro-mode');
+    el('date-display').textContent = displayDate;
+    el('date-display').classList.add('retro-badge');
+    renderPlayers();
+  } catch (err) {
+    showToast('Ошибка загрузки: ' + err.message, 'error');
+    el('retro-date-picker').value = '';
+  } finally {
+    hideLoading();
+  }
+}
+
+// Ретро-режим — выход
+function exitRetroMode() {
+  state.retroDate     = null;
+  state.retroLogs     = {};
+  state.retroOrigLogs = {};
+  el('retro-date-picker').value = '';
+  el('btn-add-player').classList.remove('hidden');
+  el('btn-retro-today').classList.add('hidden');
+  el('btn-save').textContent = '💾 Сохранить';
+  el('today-controls').classList.remove('retro-mode');
+  el('date-display').textContent = state.todayDate || '';
+  el('date-display').classList.remove('retro-badge');
+  renderPlayers();
+}
+
+// Ретро-режим — сохранение в архив
+async function saveRetroDay() {
+  if (!state.retroDate) return;
+  showLoading();
+  try {
+    var result = await api('saveRetroDay', { date: state.retroDate, logs: state.retroLogs });
+    showToast('Сохранено за ' + state.retroDate + ' (' + (result.saved || 0) + ' пропусков)', 'success');
+    // Обновляем список игроков, чтобы подтянуть новые значения счётчиков
+    var results = await Promise.all([api('getPlayers'), api('getTodayLogs')]);
+    state.players   = results[0].players  || [];
+    state.clanName  = results[0].clanName || 'Клан';
+    state.todayDate = results[1].date     || '';
+    state.todayLogs = results[1].logs     || {};
+    initRetroDatePicker();
+    renderPlayers();
+  } catch (err) {
+    showToast('Ошибка сохранения: ' + err.message, 'error');
+  } finally {
+    hideLoading();
   }
 }
 
@@ -285,6 +377,27 @@ function getPreviewSkip(player, field) {
   return count;
 }
 
+// Preview для ретро-режима: дельта от исходных значений архива
+function getPreviewSkipRetro(player, field) {
+  var skipField = field === 'torg' ? 'skipT' : field === 'labirint' ? 'skipL' : 'skipP';
+  var orig  = state.retroOrigLogs[player.nick] || {};
+  var cur   = state.retroLogs[player.nick]     || {};
+  var count = player[skipField] || 0;
+
+  if (field === 'labirint') {
+    var origVal = orig.labirint || '';
+    var curVal  = cur.labirint  || '';
+    if (!origVal && curVal)  count++;
+    if (origVal  && !curVal) count = Math.max(0, count - 1);
+  } else {
+    var origMiss = !!(orig[field]);
+    var curMiss  = !!(cur[field]);
+    if (!origMiss && curMiss)  count++;
+    if (origMiss  && !curMiss) count = Math.max(0, count - 1);
+  }
+  return count;
+}
+
 // Точечное обновление ячеек пропусков в строке (без перерисовки таблицы)
 function updateMissCells(nick) {
   var rows = el('player-list').querySelectorAll('tr[data-nick]');
@@ -300,7 +413,9 @@ function updateMissCells(nick) {
   var cells  = row.querySelectorAll('.miss-cell');
   var fields = ['torg', 'labirint', 'pohod'];
   cells.forEach(function(cell, idx) {
-    var count = getPreviewSkip(player, fields[idx]);
+    var count = state.retroDate
+      ? getPreviewSkipRetro(player, fields[idx])
+      : getPreviewSkip(player, fields[idx]);
     cell.textContent = count;
     cell.classList.remove('miss-1', 'miss-2', 'miss-3');
     var cls = getMissClass(count).trim();
@@ -327,18 +442,25 @@ function renderPlayers() {
   var rows   = '';
 
   sorted.forEach(function(player, idx) {
-    // Мёрджим сохранённые и несохранённые изменения
-    var base    = state.todayLogs[player.nick]  || {};
-    var edits   = state.editedLogs[player.nick] || {};
-    var log = {
-      torg:     edits.torg     !== undefined ? edits.torg     : (base.torg     || false),
-      labirint: edits.labirint !== undefined ? edits.labirint : (base.labirint || ''),
-      pohod:    edits.pohod    !== undefined ? edits.pohod    : (base.pohod    || false),
-    };
+    var log;
+    if (state.retroDate) {
+      // Ретро-режим: берём из retroLogs (преинициализированы из архива)
+      log = state.retroLogs[player.nick] || { torg: false, labirint: '', pohod: false };
+    } else {
+      // Сегодня: мёрджим сохранённые и несохранённые изменения
+      var base  = state.todayLogs[player.nick]  || {};
+      var edits = state.editedLogs[player.nick] || {};
+      log = {
+        torg:     edits.torg     !== undefined ? edits.torg     : (base.torg     || false),
+        labirint: edits.labirint !== undefined ? edits.labirint : (base.labirint || ''),
+        pohod:    edits.pohod    !== undefined ? edits.pohod    : (base.pohod    || false),
+      };
+    }
 
     var bg       = getRowBg(player);
     var bgStyle  = bg ? ' style="background:' + bg + '"' : '';
-    var disabled = player.onVacation;
+    // В ретро-режиме отпуск не блокирует редактирование (прошлая дата)
+    var disabled = state.retroDate ? false : player.onVacation;
     var disAttr  = disabled ? ' disabled' : '';
     var roleBadge = player.role === 'Заместитель'
       ? '<span class="role-badge">Зам</span>'
@@ -356,9 +478,11 @@ function renderPlayers() {
     rows += '<td class="lab-cell">' + buildLabSelect(log.labirint, disabled) + '</td>';
     rows += '<td class="check-cell"><input type="checkbox" class="pohod-cb"' + (log.pohod ? ' checked' : '') + disAttr + '></td>';
     rows += '<td class="actions-cell">';
-    rows += '<button class="icon-btn" data-action="edit"    title="Редактировать">✏️</button>';
-    rows += '<button class="icon-btn' + vacClass + '" data-action="vacation" title="Отпуск">🏖️</button>';
-    rows += '<button class="icon-btn" data-action="delete"  title="Удалить">❌</button>';
+    if (!state.retroDate) {
+      rows += '<button class="icon-btn" data-action="edit"    title="Редактировать">✏️</button>';
+      rows += '<button class="icon-btn' + vacClass + '" data-action="vacation" title="Отпуск">🏖️</button>';
+      rows += '<button class="icon-btn" data-action="delete"  title="Удалить">❌</button>';
+    }
     rows += '</td>';
     rows += '</tr>';
   });
@@ -398,6 +522,22 @@ function onTodayChange(e) {
   if (!row) return;
   var nick = row.dataset.nick;
   if (!nick) return;
+
+  if (state.retroDate) {
+    // Ретро-режим: пишем в retroLogs
+    if (!state.retroLogs[nick]) {
+      state.retroLogs[nick] = { torg: false, labirint: '', pohod: false };
+    }
+    if (e.target.classList.contains('torg-cb')) {
+      state.retroLogs[nick].torg = e.target.checked;
+    } else if (e.target.classList.contains('lab-select')) {
+      state.retroLogs[nick].labirint = e.target.value;
+    } else if (e.target.classList.contains('pohod-cb')) {
+      state.retroLogs[nick].pohod = e.target.checked;
+    }
+    updateMissCells(nick);
+    return;
+  }
 
   var base = state.todayLogs[nick] || {};
   if (!state.editedLogs[nick]) {
@@ -857,7 +997,7 @@ function closeModal() {
   document.querySelectorAll('.modal').forEach(function(m) { m.classList.add('hidden'); });
 }
 
-// ТЁмная тема
+// Тёмная тема
 function initTheme() {
   if (localStorage.getItem('theme') === 'dark') {
     document.body.classList.add('dark-theme');
@@ -922,8 +1062,19 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // Панель текущего дня
   el('btn-add-player').addEventListener('click', openAddModal);
-  el('btn-save').addEventListener('click',       saveLogs);
-  el('btn-refresh').addEventListener('click',    loadData);
+  el('btn-save').addEventListener('click', function() {
+    if (state.retroDate) saveRetroDay();
+    else saveLogs();
+  });
+  el('btn-refresh').addEventListener('click', loadData);
+
+  // Ретро-режим
+  el('retro-date-picker').addEventListener('change', function(e) {
+    var val = e.target.value;
+    if (!val) { if (state.retroDate) exitRetroMode(); return; }
+    enterRetroMode(val);
+  });
+  el('btn-retro-today').addEventListener('click', exitRetroMode);
 
   // Панель архива
   function onArchiveDateChange() {
